@@ -2,7 +2,7 @@ require('dotenv').config(); // .env 파일에서 OPENAI_API_KEY 등을 불러옵
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { load, save, genId, initStore } = require('./store');
+const { load, save, genId, initStore, isDbMode } = require('./store');
 const { seed } = require('./seed');
 const { generateFeedback } = require('./ai');
 const { answerChat } = require('./chatbot');
@@ -19,6 +19,19 @@ function getStudent(studentId) {
   const db = load();
   return db.students.find(s => s.studentId === String(studentId));
 }
+
+// 저장 모드/데이터 현황 확인용 (배포 검증)
+app.get('/api/health', (req, res) => {
+  const db = load();
+  res.json({
+    ok: true,
+    storage: isDbMode() ? 'postgres' : 'file',
+    students: db.students.length,
+    emotionChecks: db.emotionChecks.length,
+    activities: db.activities.length,
+    reflections: db.reflections.length
+  });
+});
 
 // 응답에서 비밀번호를 제거한 안전한 학생 객체
 function safeStudent(student) {
