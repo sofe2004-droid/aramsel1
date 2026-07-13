@@ -116,10 +116,19 @@ async function runStudentCode(code, outEl) {
   // 파이썬 내부에서 traceback을 직접 캡처하여 오류 종류·줄번호·원문을 정확히 받아온다
   pyodide.globals.set('_USER_CODE', code);
   pyodide.runPython([
-    'import sys, io, traceback as _tb',
+    'import sys, io, traceback as _tb, builtins as _bi, js as _js',
     '_g = {"__name__": "__main__"}',
     '_saved_stdout = sys.stdout',
     'sys.stdout = io.StringIO()',
+    // input() -> 브라우저 입력창(prompt)으로 연결하고, 입력값을 출력에도 표시
+    'def _browser_input(prompt=""):',
+    '    _p = str(prompt)',
+    '    sys.stdout.write(_p)',
+    '    _v = _js.window.prompt(_p)',
+    '    _v = "" if _v is None else str(_v)',
+    '    sys.stdout.write(_v + "\\n")',
+    '    return _v',
+    '_bi.input = _browser_input',
     '_result = {"err": None, "type": None, "line": None, "msg": None, "out": ""}',
     'try:',
     '    exec(_USER_CODE, _g)',
