@@ -1,0 +1,20 @@
+# Render Blueprint — GitHub 저장소를 Render에 연결하면 이 설정으로 자동 배포됩니다.
+# https://render.com → New → Blueprint → 이 저장소 선택
+services:
+  - type: web
+    name: ai-emotion-python-learning
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      # OpenAI 챗봇 키 — Render 대시보드에서 직접 입력 (코드/깃에 올리지 않음)
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      # 교사 대시보드 비밀번호 — Render 대시보드에서 직접 입력
+      - key: ADMIN_PW
+        sync: false
+      - key: NODE_VERSION
+        value: "20"
