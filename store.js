@@ -112,6 +112,24 @@ async function initStore() {
     return;
   }
   pool = makePool();
+
+  // Neon 등 서버리스 DB는 첫 연결(깨우기)에 시간이 걸릴 수 있어 몇 차례 재시도
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 6; attempt++) {
+    try {
+      await pool.query('SELECT 1');
+      lastErr = null;
+      break;
+    } catch (e) {
+      lastErr = e;
+      console.log(`DB 연결 시도 ${attempt}/6 실패: ${e.message} — 3초 후 재시도`);
+      await new Promise(r => setTimeout(r, 3000));
+    }
+  }
+  if (lastErr) {
+    throw new Error('DATABASE_URL로 PostgreSQL에 연결하지 못했습니다. 접속 주소를 확인하세요. 원인: ' + lastErr.message);
+  }
+
   await pool.query('CREATE TABLE IF NOT EXISTS app_state (id INT PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMPTZ DEFAULT now())');
   const res = await pool.query('SELECT data FROM app_state WHERE id = 1');
   if (res.rows.length) {
