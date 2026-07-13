@@ -21,13 +21,24 @@ npm start      # 서버 실행 (http://localhost:3000)
 2. https://render.com 가입 후 → **New ▸ Blueprint** → 이 저장소 선택
    (저장소의 `render.yaml`을 자동으로 읽어 설정합니다)
 3. 환경변수 입력 (Render 대시보드에서 직접):
+   - `DATABASE_URL` : PostgreSQL 접속 주소 (아래 "데이터베이스" 참고) — **데이터 보존에 필수**
    - `OPENAI_API_KEY` : OpenAI 챗봇 키
    - `ADMIN_PW` : 교사 대시보드 비밀번호
 4. 배포 완료 후 `https://<앱이름>.onrender.com` 으로 접속 (태블릿·PC 모두 가능)
 
-> ⚠️ **데이터 영속성 주의**: 무료 플랜은 파일 저장(`data.json`)이 재배포·재시작 시
-> 초기화될 수 있습니다. 실제 연구 데이터를 안정적으로 수집하려면 Render 유료 디스크
-> 또는 외부 데이터베이스(PostgreSQL 등) 연동이 필요합니다. (요청 시 추가 구현 가능)
+## 데이터베이스 (데이터 유실 방지)
+
+`DATABASE_URL` 환경변수가 있으면 파일 대신 **PostgreSQL**에 저장되어,
+재배포·자동 절전(sleep)에도 학생 기록이 안전하게 보존됩니다.
+설정하지 않으면 로컬 파일(`data.json`)로 동작합니다(개발용).
+
+**무료 PostgreSQL 발급 (Neon 예시, 기한 없음):**
+1. https://neon.tech 가입 → New Project 생성
+2. 대시보드의 **Connection string**(`postgresql://...`) 복사
+3. Render 서비스의 환경변수 `DATABASE_URL`에 붙여넣기 → 재배포
+4. 서버 로그에 `저장소: PostgreSQL 모드`가 뜨면 성공
+
+(Supabase의 Connection string도 동일하게 사용 가능합니다.)
 
 > ⚠️ **교사 비밀번호**: 공개 저장소에서는 `server.js`의 기본값(`4110`)이 노출됩니다.
 > Render 환경변수 `ADMIN_PW`에 다른 값을 설정하면 그 값이 우선 적용됩니다.

@@ -1,5 +1,5 @@
-// 초기 데이터 시딩: 실험집단 학생 30명(번호 1~30) + 7차시 교육과정
-const { load, save } = require('./store');
+// 초기 데이터 시딩: 실험집단 학생 66명 + 7차시 교육과정
+const { load, save, initStore, flush } = require('./store');
 
 const SESSIONS = [
   {
@@ -133,7 +133,12 @@ function seed(force) {
 }
 
 if (require.main === module) {
-  seed(process.argv.includes('--force'));
+  (async () => {
+    await initStore();
+    seed(process.argv.includes('--force'));
+    await flush(); // DB 모드일 때 기록 완료까지 대기
+    process.exit(0);
+  })();
 }
 
 module.exports = { seed, SESSIONS, buildStudents };

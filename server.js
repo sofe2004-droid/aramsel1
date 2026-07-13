@@ -2,12 +2,10 @@ require('dotenv').config(); // .env 파일에서 OPENAI_API_KEY 등을 불러옵
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { load, save, genId } = require('./store');
+const { load, save, genId, initStore } = require('./store');
 const { seed } = require('./seed');
 const { generateFeedback } = require('./ai');
 const { answerChat } = require('./chatbot');
-
-seed(false); // 최초 1회 자동 시드 (이미 있으면 무시)
 
 const app = express();
 app.use(cors());
@@ -300,12 +298,23 @@ app.get('/api/teacher/alerts', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`AI 정서지원 학습지원 프로그램 서버 실행: http://localhost:${PORT}`);
-  console.log(`태블릿 접속용: http://<이 PC의 IP주소>:${PORT}`);
-  if (process.env.OPENAI_API_KEY) {
-    console.log(`챗봇: OpenAI 생성형 AI 모드 (모델: ${process.env.OPENAI_MODEL || 'gpt-4o-mini'})`);
-  } else {
-    console.log('챗봇: 규칙 기반(FAQ) 모드 — OPENAI_API_KEY가 설정되지 않았습니다.');
+
+// 저장소 초기화(파일/DB) → 최초 시드 → 서버 시작
+(async () => {
+  try {
+    await initStore();
+    seed(false); // 학생/차시 데이터가 없으면 시드 (있으면 유지)
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`AI 정서지원 학습지원 프로그램 서버 실행: http://localhost:${PORT}`);
+      console.log(`태블릿 접속용: http://<이 PC의 IP주소>:${PORT}`);
+      if (process.env.OPENAI_API_KEY) {
+        console.log(`챗봇: OpenAI 생성형 AI 모드 (모델: ${process.env.OPENAI_MODEL || 'gpt-4o-mini'})`);
+      } else {
+        console.log('챗봇: 규칙 기반(FAQ) 모드 — OPENAI_API_KEY가 설정되지 않았습니다.');
+      }
+    });
+  } catch (e) {
+    console.error('서버 시작 실패:', e);
+    process.exit(1);
   }
-});
+})();

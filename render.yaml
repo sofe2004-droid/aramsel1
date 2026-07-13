@@ -8,6 +8,10 @@ services:
     buildCommand: npm install
     startCommand: npm start
     envVars:
+      # PostgreSQL 접속 주소 — Neon/Supabase 등에서 발급받아 Render 대시보드에 입력
+      # (설정하면 파일 대신 DB에 저장되어 재배포·절전에도 데이터가 보존됩니다)
+      - key: DATABASE_URL
+        sync: false
       # OpenAI 챗봇 키 — Render 대시보드에서 직접 입력 (코드/깃에 올리지 않음)
       - key: OPENAI_API_KEY
         sync: false
