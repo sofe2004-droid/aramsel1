@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>교사 대시보드</title>
+<link rel="stylesheet" href="css/style.css">
+<script>
+  // 비밀번호 인증 없이 직접 접속하면 로그인 화면으로 되돌림
+  if (sessionStorage.getItem('teacherAuthed') !== '1') {
+    location.replace('index.html');
+  }
+</script>
+</head>
+<body>
+<div class="app-header">
+  <div>
+    <h1>교사 대시보드</h1>
+    <div class="sub">AI 정서지원 기반 학습지원 프로그램 · 실험집단 모니터링</div>
+  </div>
+  <button class="btn btn-outline" style="background:rgba(255,255,255,0.15); color:#fff; border-color:#fff;" onclick="sessionStorage.removeItem('teacherAuthed'); location.href='index.html'">나가기</button>
+</div>
+
+<div class="container">
+  <div class="card">
+    <h3>⚠️ 정서 위험 신호 (강도 4 이상의 부정적 정서)</h3>
+    <div id="alerts"><p class="muted">불러오는 중...</p></div>
+  </div>
+
+  <div class="card">
+    <h3>전체 학생 진행 현황 (학번 20101~20215, 7차시)</h3>
+    <p class="muted">● 초록: 학습 후 정서까지 완료 · ● 노랑: 진행 중 · ● 빨강: 부정 정서 강도 높음 · ● 회색: 미시작</p>
+    <div style="overflow-x:auto;">
+      <table id="overviewTable"></table>
+    </div>
+  </div>
+
+  <div class="card" id="detailCard" style="display:none;">
+    <h3 id="detailTitle"></h3>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<script src="js/teacher.js"></script>
+</body>
+</html>

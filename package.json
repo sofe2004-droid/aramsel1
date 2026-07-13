@@ -1,0 +1,18 @@
+{
+  "name": "ai-emotion-support-python-program",
+  "version": "1.0.0",
+  "description": "AI 정서지원 기반 학습지원 프로그램 - 파이썬 프로그래밍 7차시",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node seed.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2"
+  }
+}

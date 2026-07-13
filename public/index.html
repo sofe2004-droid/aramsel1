@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AI 정서지원 학습지원 프로그램</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="emoji-deco">🌸🐍💗</div>
+    <h2>AI 정서지원<br>파이썬 학습지원 프로그램</h2>
+    <p class="lead">오늘도 차근차근, 같이 코딩해볼까요?</p>
+
+    <div class="role-toggle">
+      <button id="roleStudent" class="active">👩‍🎓 학생</button>
+      <button id="roleTeacher">🍎 교사</button>
+    </div>
+
+    <div id="studentLogin">
+      <div class="field-label">학번 (아이디)</div>
+      <input type="text" inputmode="numeric" maxlength="5" class="id-input" id="studentIdInput" placeholder="20101" style="margin-bottom:12px;">
+      <div class="field-label">비밀번호</div>
+      <input type="password" inputmode="numeric" class="id-input" id="studentPwInput" placeholder="비밀번호" style="letter-spacing:4px;">
+      <div class="id-hint">처음 로그인은 <strong>비밀번호도 학번</strong>이에요. 로그인 후 생년월일 8자리로 바꿔주세요.</div>
+      <button class="primary-btn" id="enterBtn">학습 시작하기 💌</button>
+      <div class="login-error" id="studentError"></div>
+    </div>
+
+    <div id="teacherLogin" style="display:none;">
+      <div class="field-label">관리자 ID</div>
+      <input type="text" class="id-input" id="adminIdInput" placeholder="admin" style="letter-spacing:2px; text-transform:lowercase; margin-bottom:12px;">
+      <div class="field-label">비밀번호</div>
+      <input type="password" inputmode="numeric" class="id-input" id="adminPwInput" placeholder="••••" style="letter-spacing:8px;">
+      <div class="id-hint">교사 전용 대시보드로 이동합니다.</div>
+      <button class="primary-btn" id="teacherEnterBtn">대시보드 열기 🍀</button>
+      <div class="login-error" id="teacherError"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const studentIdInput = document.getElementById('studentIdInput');
+const studentPwInput = document.getElementById('studentPwInput');
+const studentError = document.getElementById('studentError');
+const adminIdInput = document.getElementById('adminIdInput');
+const adminPwInput = document.getElementById('adminPwInput');
+const teacherError = document.getElementById('teacherError');
+
+studentIdInput.addEventListener('input', () => {
+  studentIdInput.value = studentIdInput.value.replace(/[^0-9]/g, '').slice(0, 5);
+});
+
+async function studentLogin() {
+  const studentId = studentIdInput.value.trim();
+  const password = studentPwInput.value.trim();
+  studentError.textContent = '';
+  if (studentId.length !== 5) {
+    studentError.textContent = '학번 5자리를 입력해주세요. (예: 20101)';
+    return;
+  }
+  if (!password) {
+    studentError.textContent = '비밀번호를 입력해주세요. (처음이면 학번과 같아요)';
+    return;
+  }
+  const res = await fetch('/api/login', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ studentId, password })
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    studentError.textContent = data.error || '학번 또는 비밀번호를 다시 확인해주세요.';
+    return;
+  }
+  const data = await res.json();
+  localStorage.setItem('student', JSON.stringify(data.student));
+  if (data.mustChangePassword) {
+    // 최초 로그인: 비밀번호 변경 화면으로 (현재 비밀번호=학번 전달)
+    sessionStorage.setItem('loginPw', password);
+    location.href = 'changepw.html';
+  } else {
+    location.href = 'student.html';
+  }
+}
+
+async function teacherLogin() {
+  const id = adminIdInput.value.trim();
+  const password = adminPwInput.value.trim();
+  teacherError.textContent = '';
+  if (!password) {
+    teacherError.textContent = '비밀번호를 입력해주세요.';
+    return;
+  }
+  const res = await fetch('/api/admin-login', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ id, password })
+  });
+  if (!res.ok) {
+    teacherError.textContent = '관리자 ID 또는 비밀번호가 올바르지 않습니다.';
+    return;
+  }
+  sessionStorage.setItem('teacherAuthed', '1');
+  location.href = 'teacher.html';
+}
+
+document.getElementById('enterBtn').onclick = studentLogin;
+studentIdInput.addEventListener('keydown', e => { if (e.key === 'Enter') studentPwInput.focus(); });
+studentPwInput.addEventListener('keydown', e => { if (e.key === 'Enter') studentLogin(); });
+
+document.getElementById('teacherEnterBtn').onclick = teacherLogin;
+adminIdInput.addEventListener('keydown', e => { if (e.key === 'Enter') teacherLogin(); });
+adminPwInput.addEventListener('keydown', e => { if (e.key === 'Enter') teacherLogin(); });
+
+document.getElementById('roleStudent').onclick = () => {
+  document.getElementById('roleStudent').classList.add('active');
+  document.getElementById('roleTeacher').classList.remove('active');
+  document.getElementById('studentLogin').style.display = '';
+  document.getElementById('teacherLogin').style.display = 'none';
+};
+document.getElementById('roleTeacher').onclick = () => {
+  document.getElementById('roleTeacher').classList.add('active');
+  document.getElementById('roleStudent').classList.remove('active');
+  document.getElementById('studentLogin').style.display = 'none';
+  document.getElementById('teacherLogin').style.display = '';
+};
+</script>
+</body>
+</html>

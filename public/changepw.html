@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>비밀번호 변경</title>
+<link rel="stylesheet" href="css/style.css">
+<script>
+  // 로그인하지 않았으면 로그인 화면으로
+  if (!localStorage.getItem('student')) location.replace('index.html');
+</script>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="emoji-deco">🔐🌸</div>
+    <h2>비밀번호 변경</h2>
+    <p class="lead" id="welcomeLabel">최초 로그인이에요. 안전을 위해 비밀번호를 바꿔주세요.</p>
+
+    <div class="field-label">새 비밀번호 (생년월일 8자리)</div>
+    <input type="password" inputmode="numeric" maxlength="8" class="id-input" id="newPw" placeholder="예: 20090315" style="letter-spacing:4px; margin-bottom:12px;">
+
+    <div class="field-label">새 비밀번호 확인</div>
+    <input type="password" inputmode="numeric" maxlength="8" class="id-input" id="newPw2" placeholder="한 번 더 입력" style="letter-spacing:4px;">
+    <div class="id-hint">생년월일 8자리를 입력하세요. 예) 2009년 3월 15일 → 20090315</div>
+
+    <button class="primary-btn" id="changeBtn">변경하고 학습 시작하기 ✨</button>
+    <div class="login-error" id="pwError"></div>
+  </div>
+</div>
+
+<script>
+const student = JSON.parse(localStorage.getItem('student') || 'null');
+if (student) {
+  document.getElementById('welcomeLabel').textContent =
+    `${student.name} 님, 최초 로그인이에요. 생년월일 8자리로 비밀번호를 바꿔주세요.`;
+}
+const newPw = document.getElementById('newPw');
+const newPw2 = document.getElementById('newPw2');
+const pwError = document.getElementById('pwError');
+
+[newPw, newPw2].forEach(el => {
+  el.addEventListener('input', () => { el.value = el.value.replace(/[^0-9]/g, '').slice(0, 8); });
+});
+
+async function changePassword() {
+  pwError.textContent = '';
+  const p1 = newPw.value.trim();
+  const p2 = newPw2.value.trim();
+  if (!/^\d{8}$/.test(p1)) { pwError.textContent = '생년월일 8자리(숫자)를 입력해주세요. 예: 20090315'; return; }
+  if (p1 !== p2) { pwError.textContent = '두 비밀번호가 서로 달라요. 다시 확인해주세요.'; return; }
+  if (p1 === student.studentId) { pwError.textContent = '학번과 다른 비밀번호(생년월일 8자리)를 입력해주세요.'; return; }
+
+  const res = await fetch('/api/change-password', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      studentId: student.studentId,
+      currentPassword: sessionStorage.getItem('loginPw') || student.studentId,
+      newPassword: p1
+    })
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    pwError.textContent = data.error || '비밀번호 변경에 실패했어요.';
+    return;
+  }
+  const data = await res.json();
+  localStorage.setItem('student', JSON.stringify(data.student));
+  sessionStorage.removeItem('loginPw');
+  alert('비밀번호가 변경되었어요! 다음부터는 학번과 새 비밀번호(생년월일)로 로그인하세요. 😊');
+  location.href = 'student.html';
+}
+
+document.getElementById('changeBtn').onclick = changePassword;
+newPw2.addEventListener('keydown', e => { if (e.key === 'Enter') changePassword(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>파이썬 학습지원 프로그램</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-header">
+  <div>
+    <h1 id="studentLabel">학생</h1>
+    <div class="sub" id="sessionLabel">차시를 선택하세요</div>
+  </div>
+  <button class="btn btn-outline" style="background:rgba(255,255,255,0.15); color:#fff; border-color:#fff;" onclick="logout()">로그아웃</button>
+</div>
+
+<div class="session-nav" id="sessionNav"></div>
+
+<div class="layout-grid">
+  <div class="layout-main">
+    <div class="container" id="content" style="padding:0;"></div>
+  </div>
+
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-header">🤖 코딩 도우미 챗봇<div class="muted" style="font-weight:400; font-size:0.75rem; margin-top:2px;">파이썬 학습 관련 질문을 해보세요</div></div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" placeholder="궁금한 점을 입력해보세요!">
+      <button class="chat-send-btn" id="chatSendBtn">전송</button>
+    </div>
+  </div>
+</div>
+
+<button class="chat-toggle-btn" id="chatToggleBtn">🤖 도우미</button>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script src="js/pyrunner.js"></script>
+<script src="js/chatbot.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
