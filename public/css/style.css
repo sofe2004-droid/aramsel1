@@ -135,6 +135,19 @@ th { background:#fff3f8; color: var(--ink); }
 
 .alert-item { border-left: 4px solid #ff7a93; background:#fff3f6; padding: 12px 16px; border-radius: 12px; margin-bottom: 8px; font-size: 0.85rem; }
 
+/* 반 전체 정서 현황 요약 (교사 대시보드) */
+.summary-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-top: 10px; }
+.summary-tile { border-radius: 14px; padding: 14px 10px; text-align:center; border: 1px solid #eee; }
+.summary-tile .tile-num { font-size: 1.7rem; font-weight: 800; line-height: 1.1; }
+.summary-tile .tile-label { font-size: 0.78rem; margin-top: 4px; }
+.summary-tile.sum-pos { background:#eafaf2; border-color:#b6e6cf; color:#1f9d6f; }
+.summary-tile.sum-neg { background:#fff2f6; border-color:#ffc6d3; color:#d6336c; }
+.summary-tile.sum-risk { background:#fff0f0; border-color:#ffb3b3; color:#e03131; }
+.summary-tile.sum-neutral { background:#f5f3fb; border-color:#e2d6e6; color:#8a7f98; }
+.summary-tile.sum-none { background:#f4f4f6; border-color:#e5e5e8; color:#9a9aa0; }
+.trend-bar { background:#ffe0ea; border-radius:999px; height:9px; overflow:hidden; }
+.trend-fill { background: linear-gradient(90deg, #34c38f, #8fe3c0); height:100%; border-radius:999px; }
+
 /* 복습 표시 (교사 대시보드) */
 .review-count { font-size: 0.7rem; color:#2f7d5b; font-weight:700; margin-left:3px; }
 .review-row { background:#f0fbf6; }

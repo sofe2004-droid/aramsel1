@@ -1,5 +1,48 @@
 const NEGATIVE = ['답답함', '짜증남', '좌절감', '포기하고싶음', '당황스러움', '걱정됨'];
 
+async function loadEmotionSummary() {
+  const res = await fetch('/api/teacher/emotion-summary');
+  const data = await res.json();
+  const c = data.current;
+
+  // 반 전체 현재 정서 분포 카드
+  const cards = [
+    { label: '😊 긍정', n: c.positive, cls: 'sum-pos' },
+    { label: '😟 부정', n: c.negative, cls: 'sum-neg' },
+    { label: '🚨 위험(강도4↑)', n: c.atRisk, cls: 'sum-risk' },
+    { label: '· 중립/기타', n: c.neutralOrNone, cls: 'sum-neutral' },
+    { label: '🔲 기록없음', n: c.noData, cls: 'sum-none' }
+  ];
+  document.getElementById('emotionSummary').innerHTML = `
+    <p class="muted">전체 ${data.totalStudents}명 · 각 학생의 가장 최근 정서 기준</p>
+    <div class="summary-grid">
+      ${cards.map(x => `<div class="summary-tile ${x.cls}"><div class="tile-num">${x.n}</div><div class="tile-label">${x.label}</div></div>`).join('')}
+    </div>`;
+
+  // 차시별 정서 추이 표
+  const rows = data.bySession.map(s => {
+    const total = s.positive + s.negative;
+    const posPct = total ? Math.round(s.positive / total * 100) : 0;
+    return `<tr>
+      <td>${s.sessionNo}차시</td>
+      <td style="text-align:left">${s.title}</td>
+      <td>${s.responses}</td>
+      <td style="color:#1f9d6f;font-weight:700">${s.positive}</td>
+      <td style="color:#d6336c;font-weight:700">${s.negative}</td>
+      <td>${s.avgIntensity ?? '-'}</td>
+      <td style="min-width:120px">
+        <div class="trend-bar"><div class="trend-fill" style="width:${posPct}%"></div></div>
+        <span class="muted" style="font-size:0.72rem">긍정 ${posPct}%</span>
+      </td>
+    </tr>`;
+  }).join('');
+  document.getElementById('emotionTrend').innerHTML = `
+    <table>
+      <tr><th>차시</th><th>주제</th><th>응답</th><th>긍정</th><th>부정</th><th>평균강도</th><th>긍정 비율</th></tr>
+      ${rows}
+    </table>`;
+}
+
 async function loadAlerts() {
   const res = await fetch('/api/teacher/alerts');
   const data = await res.json();
@@ -102,6 +145,7 @@ async function showDetail(studentId) {
   document.getElementById('detailCard').scrollIntoView({ behavior: 'smooth' });
 }
 
+loadEmotionSummary();
 loadAlerts();
 loadOverview();
-setInterval(() => { loadAlerts(); loadOverview(); }, 15000);
+setInterval(() => { loadEmotionSummary(); loadAlerts(); loadOverview(); }, 15000);

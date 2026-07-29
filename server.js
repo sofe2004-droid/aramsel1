@@ -309,6 +309,46 @@ app.get('/api/teacher/student/:studentId', (req, res) => {
   });
 });
 
+// 반 전체 정서 현황·추이 (교사 대시보드 요약)
+const POSITIVE_EMOTIONS = ['기대됨', '자신있음', '편안함', '성취감', '즐거움'];
+const NEGATIVE_EMOTIONS = ['답답함', '짜증남', '좌절감', '포기하고싶음', '당황스러움', '걱정됨'];
+
+app.get('/api/teacher/emotion-summary', (req, res) => {
+  const db = load();
+  const learn = db.emotionChecks.filter(e => e.mode !== 'review');
+
+  // 학생별 "가장 최근 정서" → 현재 반 정서 분포
+  const current = { positive: 0, negative: 0, atRisk: 0, neutralOrNone: 0 };
+  const totalStudents = db.students.length;
+  let withData = 0;
+  for (const st of db.students) {
+    const mine = learn.filter(e => e.studentId === st.studentId);
+    if (!mine.length) continue;
+    withData++;
+    const latest = mine.reduce((a, b) => new Date(a.createdAt) >= new Date(b.createdAt) ? a : b);
+    const isNeg = NEGATIVE_EMOTIONS.includes(latest.emotion);
+    const isPos = POSITIVE_EMOTIONS.includes(latest.emotion);
+    if (isNeg && latest.intensity >= 4) current.atRisk++;
+    else if (isNeg) current.negative++;
+    else if (isPos) current.positive++;
+    else current.neutralOrNone++;
+  }
+  current.noData = totalStudents - withData;
+
+  // 차시별 정서 추이 (학습 후 정서 기준: 긍정/부정 인원, 평균 강도)
+  const bySession = db.sessions.map(sess => {
+    const post = learn.filter(e => e.sessionNo === sess.no && e.phase === 'post');
+    const pos = post.filter(e => POSITIVE_EMOTIONS.includes(e.emotion)).length;
+    const neg = post.filter(e => NEGATIVE_EMOTIONS.includes(e.emotion)).length;
+    const avgIntensity = post.length
+      ? Number((post.reduce((s, e) => s + (e.intensity || 0), 0) / post.length).toFixed(1))
+      : null;
+    return { sessionNo: sess.no, title: sess.title, positive: pos, negative: neg, responses: post.length, avgIntensity };
+  });
+
+  res.json({ totalStudents, current, bySession });
+});
+
 // 부정적 정서 강도 높은 학생 알림용 (교사 대시보드 경고)
 app.get('/api/teacher/alerts', (req, res) => {
   const db = load();

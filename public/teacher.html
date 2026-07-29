@@ -23,13 +23,24 @@
 
 <div class="container">
   <div class="card">
+    <h3>💗 반 전체 정서 현황</h3>
+    <div id="emotionSummary"><p class="muted">불러오는 중...</p></div>
+  </div>
+
+  <div class="card">
+    <h3>📈 차시별 정서 추이 (학습 후 정서 기준)</h3>
+    <p class="muted">차시가 진행될수록 반 전체의 긍정/부정 정서가 어떻게 변하는지 보여줍니다.</p>
+    <div id="emotionTrend" style="overflow-x:auto;"><p class="muted">불러오는 중...</p></div>
+  </div>
+
+  <div class="card">
     <h3>⚠️ 정서 위험 신호 (강도 4 이상의 부정적 정서)</h3>
     <div id="alerts"><p class="muted">불러오는 중...</p></div>
   </div>
 
   <div class="card">
-    <h3>전체 학생 진행 현황 (학번 20101~20215, 7차시)</h3>
-    <p class="muted">● 초록: 학습 후 정서까지 완료 · ● 노랑: 진행 중 · ● 빨강: 부정 정서 강도 높음 · ● 회색: 미시작</p>
+    <h3>📋 전체 학생 진행 현황 (7차시)</h3>
+    <p class="muted">● 초록: 학습 후 정서까지 완료 · ● 노랑: 진행 중 · ● 빨강: 부정 정서 강도 높음 · ● 회색: 미시작 · 🔁 복습 횟수 · 행 클릭 시 학생별 상세</p>
     <div style="overflow-x:auto;">
       <table id="overviewTable"></table>
     </div>
