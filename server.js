@@ -349,6 +349,121 @@ app.get('/api/teacher/emotion-summary', (req, res) => {
   res.json({ totalStudents, current, bySession });
 });
 
+// ── 교사 대시보드 통합 분석 (학급별 현황·이수율·향상도·코드·감정추이·경고·학생목록) ──
+function emotionScore(e) {
+  if (POSITIVE_EMOTIONS.includes(e.emotion)) return (e.intensity || 3);
+  if (NEGATIVE_EMOTIONS.includes(e.emotion)) return -(e.intensity || 3);
+  return 0;
+}
+
+app.get('/api/teacher/analytics', (req, res) => {
+  const db = load();
+  const learn = db.emotionChecks.filter(e => e.mode !== 'review');
+  const classes = [...new Set(db.students.map(s => s.classNo))].sort((a, b) => a - b);
+
+  function analyzeScope(students) {
+    const ids = new Set(students.map(s => s.studentId));
+    const emo = learn.filter(e => ids.has(e.studentId));
+    const acts = db.activities.filter(a => ids.has(a.studentId));
+
+    // 차시별 이수율 (학습 후 정서까지 완료 = 이수)
+    const completionBySession = db.sessions.map(sess => {
+      let completed = 0;
+      for (const st of students) {
+        const p = db.progress.find(pr => pr.studentId === st.studentId && pr.sessionNo === sess.no);
+        if (p && p.steps.includes('emotion_post')) completed++;
+      }
+      return { sessionNo: sess.no, title: sess.title, completed, total: students.length,
+               rate: students.length ? Math.round(completed / students.length * 100) : 0 };
+    });
+
+    // 현재 정서 분포 (학생별 최근 정서)
+    const current = { positive: 0, negative: 0, atRisk: 0, neutralOrNone: 0, noData: 0 };
+    for (const st of students) {
+      const mine = emo.filter(e => e.studentId === st.studentId);
+      if (!mine.length) { current.noData++; continue; }
+      const latest = mine.reduce((a, b) => new Date(a.createdAt) >= new Date(b.createdAt) ? a : b);
+      const neg = NEGATIVE_EMOTIONS.includes(latest.emotion), pos = POSITIVE_EMOTIONS.includes(latest.emotion);
+      if (neg && latest.intensity >= 4) current.atRisk++;
+      else if (neg) current.negative++;
+      else if (pos) current.positive++;
+      else current.neutralOrNone++;
+    }
+
+    // 차시별 감정 변화 추이 (학습 후 정서 기준)
+    const emotionTrend = db.sessions.map(sess => {
+      const post = emo.filter(e => e.sessionNo === sess.no && e.phase === 'post');
+      const pos = post.filter(e => POSITIVE_EMOTIONS.includes(e.emotion)).length;
+      const neg = post.filter(e => NEGATIVE_EMOTIONS.includes(e.emotion)).length;
+      const avgIntensity = post.length ? Number((post.reduce((s, e) => s + (e.intensity || 0), 0) / post.length).toFixed(1)) : null;
+      return { sessionNo: sess.no, positive: pos, negative: neg, responses: post.length, avgIntensity };
+    });
+
+    // 학습 향상도 (같은 차시 pre→post 정서 점수 개선 비율)
+    let improved = 0, pairs = 0;
+    for (const st of students) {
+      for (const sess of db.sessions) {
+        const pre = emo.find(e => e.studentId === st.studentId && e.sessionNo === sess.no && e.phase === 'pre');
+        const post = emo.find(e => e.studentId === st.studentId && e.sessionNo === sess.no && e.phase === 'post');
+        if (pre && post) { pairs++; if (emotionScore(post) > emotionScore(pre)) improved++; }
+      }
+    }
+
+    // 코드 입력 정도
+    const codeActs = acts.filter(a => a.type === 'code' || a.type === 'final');
+    const studentsWithCode = new Set(codeActs.map(a => a.studentId)).size;
+
+    // 평균 이수 차시
+    let totalCompleted = 0;
+    for (const st of students) {
+      totalCompleted += db.progress.filter(p => p.studentId === st.studentId && p.steps.includes('emotion_post')).length;
+    }
+
+    return {
+      students: students.length,
+      completionBySession,
+      current,
+      emotionTrend,
+      improvement: { pairs, improved, rate: pairs ? Math.round(improved / pairs * 100) : 0 },
+      code: { totalSubmissions: codeActs.length, studentsWithCode,
+              avgPerStudent: students.length ? Number((codeActs.length / students.length).toFixed(1)) : 0 },
+      avgCompletedSessions: students.length ? Number((totalCompleted / students.length).toFixed(1)) : 0,
+      totalSessions: db.sessions.length
+    };
+  }
+
+  const byClass = {};
+  for (const c of classes) byClass[c] = analyzeScope(db.students.filter(s => s.classNo === c));
+  const overall = analyzeScope(db.students);
+
+  // 정서 이상(위험) 학생 — 강도 4 이상 부정 정서, 최근순
+  const atRisk = learn
+    .filter(e => NEGATIVE_EMOTIONS.includes(e.emotion) && e.intensity >= 4)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 50)
+    .map(e => {
+      const st = db.students.find(s => s.studentId === e.studentId);
+      return { studentId: e.studentId, studentName: st ? st.name : '?', classNo: st ? st.classNo : null,
+               sessionNo: e.sessionNo, emotion: e.emotion, intensity: e.intensity, note: e.note, createdAt: e.createdAt };
+    });
+
+  // 학생 목록 (표·검색용)
+  const students = db.students.map(st => {
+    const completed = db.progress.filter(p => p.studentId === st.studentId && p.steps.includes('emotion_post')).length;
+    const codeCount = db.activities.filter(a => a.studentId === st.studentId && (a.type === 'code' || a.type === 'final')).length;
+    const mine = learn.filter(e => e.studentId === st.studentId);
+    let currentEmotion = null;
+    if (mine.length) {
+      const l = mine.reduce((a, b) => new Date(a.createdAt) >= new Date(b.createdAt) ? a : b);
+      currentEmotion = { emotion: l.emotion, intensity: l.intensity };
+    }
+    return { studentId: st.studentId, name: st.name, classNo: st.classNo, number: st.number,
+             completedSessions: completed, codeCount, currentEmotion };
+  });
+
+  res.json({ classes, totalStudents: db.students.length, overall, byClass, atRisk, students });
+});
+
 // 부정적 정서 강도 높은 학생 알림용 (교사 대시보드 경고)
 app.get('/api/teacher/alerts', (req, res) => {
   const db = load();

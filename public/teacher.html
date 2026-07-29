@@ -21,28 +21,60 @@
   <button class="btn btn-outline" style="background:rgba(255,255,255,0.15); color:#fff; border-color:#fff;" onclick="sessionStorage.removeItem('teacherAuthed'); location.href='index.html'">나가기</button>
 </div>
 
+<!-- 🚨 정서 이상 학생 경고 (최상단 배너) -->
+<div id="riskBanner" class="risk-banner" style="display:none;"></div>
+
 <div class="container">
-  <div class="card">
-    <h3>💗 반 전체 정서 현황</h3>
-    <div id="emotionSummary"><p class="muted">불러오는 중...</p></div>
+  <!-- 반/학번 검색 -->
+  <div class="card filter-card">
+    <div class="filter-row">
+      <div class="filter-group">
+        <span class="filter-label">반 검색</span>
+        <div id="classFilter" class="class-filter"></div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">학번 검색</span>
+        <div class="search-box">
+          <input type="text" id="studentSearch" inputmode="numeric" maxlength="5" placeholder="학번 5자리 (예: 20601)">
+          <button class="btn btn-primary" id="searchBtn">검색</button>
+          <button class="btn btn-outline" id="clearSearchBtn" style="display:none;">전체보기</button>
+        </div>
+      </div>
+    </div>
+    <div id="scopeLabel" class="scope-label"></div>
   </div>
 
-  <div class="card">
-    <h3>📈 차시별 정서 추이 (학습 후 정서 기준)</h3>
-    <p class="muted">차시가 진행될수록 반 전체의 긍정/부정 정서가 어떻게 변하는지 보여줍니다.</p>
-    <div id="emotionTrend" style="overflow-x:auto;"><p class="muted">불러오는 중...</p></div>
+  <!-- 학급별 학습현황 (전체 보기일 때 반별 비교) -->
+  <div class="card" id="classCompareCard">
+    <h3>🏫 학급별 학습현황</h3>
+    <div id="classCompare"><p class="muted">불러오는 중...</p></div>
   </div>
 
+  <!-- 핵심 지표 (선택 범위) -->
   <div class="card">
-    <h3>⚠️ 정서 위험 신호 (강도 4 이상의 부정적 정서)</h3>
-    <div id="alerts"><p class="muted">불러오는 중...</p></div>
+    <h3 id="kpiTitle">📊 학습 지표</h3>
+    <div id="kpiTiles" class="summary-grid"></div>
   </div>
 
+  <!-- 차시별 이수율 -->
   <div class="card">
-    <h3>📋 전체 학생 진행 현황 (7차시)</h3>
-    <p class="muted">● 초록: 학습 후 정서까지 완료 · ● 노랑: 진행 중 · ● 빨강: 부정 정서 강도 높음 · ● 회색: 미시작 · 🔁 복습 횟수 · 행 클릭 시 학생별 상세</p>
+    <h3>✅ 차시별 이수율</h3>
+    <div id="completionBars"></div>
+  </div>
+
+  <!-- 감정 변화 추이 -->
+  <div class="card">
+    <h3>📈 차시별 감정 변화 추이</h3>
+    <p class="muted">차시가 진행될수록 긍정/부정 정서가 어떻게 변하는지 보여줍니다.</p>
+    <div id="emotionTrend" style="overflow-x:auto;"></div>
+  </div>
+
+  <!-- 학생 목록 -->
+  <div class="card">
+    <h3 id="studentListTitle">👩‍🎓 학생 목록</h3>
+    <p class="muted">행을 클릭하면 학생별 상세(정서 변화·코드·AI 피드백·성찰)를 볼 수 있어요.</p>
     <div style="overflow-x:auto;">
-      <table id="overviewTable"></table>
+      <table id="studentTable"></table>
     </div>
   </div>
 
