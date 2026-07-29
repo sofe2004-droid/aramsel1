@@ -68,7 +68,9 @@ function makePool() {
   const isLocal = /localhost|127\.0\.0\.1/.test(connectionString);
   return new Pool({
     connectionString,
-    ssl: isLocal ? false : { rejectUnauthorized: false }
+    ssl: isLocal ? false : { rejectUnauthorized: false },
+    connectionTimeoutMillis: 10000, // 잘못된 주소면 빨리 실패해 재시도(initStore)로 넘어감
+    max: 5
   });
 }
 

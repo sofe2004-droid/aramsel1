@@ -32,13 +32,18 @@ npm start      # 서버 실행 (http://localhost:3000)
 재배포·자동 절전(sleep)에도 학생 기록이 안전하게 보존됩니다.
 설정하지 않으면 로컬 파일(`data.json`)로 동작합니다(개발용).
 
-**무료 PostgreSQL 발급 (Neon 예시, 기한 없음):**
-1. https://neon.tech 가입 → New Project 생성
-2. 대시보드의 **Connection string**(`postgresql://...`) 복사
-3. Render 서비스의 환경변수 `DATABASE_URL`에 붙여넣기 → 재배포
-4. 서버 로그에 `저장소: PostgreSQL 모드`가 뜨면 성공
+**무료 PostgreSQL 발급 — Supabase (권장, 데이터 뷰어 제공):**
+1. https://supabase.com 가입 → **New project** 생성 (DB 비밀번호를 정해 기록해 둠)
+2. 프로젝트 → **Connect**(상단) 또는 Settings ▸ Database → **Connection string**
+3. **Session pooler** 탭의 주소를 사용 (Render 같은 상시 서버에 안정적, IPv4):
+   `postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`
+   - `<password>` 부분을 1번에서 정한 실제 DB 비밀번호로 교체
+4. Render 서비스의 환경변수 `DATABASE_URL`에 붙여넣기 → 재배포
+5. 서버 로그에 `저장소: PostgreSQL 모드`가 뜨면 성공
+6. 데이터 확인: Supabase → **Table Editor**에서 `app_state` 테이블 열람, CSV 내보내기 가능
 
-(Supabase의 Connection string도 동일하게 사용 가능합니다.)
+> Neon 등 다른 PostgreSQL의 Connection string도 그대로 사용 가능합니다.
+> 저장 구조는 `app_state` 테이블에 전체 데이터를 JSONB 한 행으로 보관합니다.
 
 > ⚠️ **교사 비밀번호**: 공개 저장소에서는 `server.js`의 기본값(`4110`)이 노출됩니다.
 > Render 환경변수 `ADMIN_PW`에 다른 값을 설정하면 그 값이 우선 적용됩니다.
