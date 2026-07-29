@@ -70,6 +70,7 @@ function renderNav() {
 async function renderSessionList() {
   currentSessionNo = null;
   currentMode = 'learn';
+  window.__currentSessionNo = null;
   await loadProgress();
   renderNav();
   document.getElementById('sessionLabel').textContent = '차시를 선택하세요';
@@ -111,6 +112,7 @@ async function renderSessionList() {
 function enterSession(no, mode) {
   currentSessionNo = no;
   currentMode = mode || 'learn';
+  window.__currentSessionNo = no; // 챗봇이 현재 차시 맥락을 알 수 있도록 노출
   localStorage.setItem('lastSession_' + student.studentId, no);
   renderNav();
   renderSession(no);

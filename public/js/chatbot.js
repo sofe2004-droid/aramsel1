@@ -23,7 +23,7 @@
 
     const res = await fetch('/api/chatbot', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ studentId: getStudentId(), message })
+      body: JSON.stringify({ studentId: getStudentId(), message, sessionNo: window.__currentSessionNo || null })
     });
     const data = await res.json();
     appendBubble(data.answer, 'bot', data.blocked);

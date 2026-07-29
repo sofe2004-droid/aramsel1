@@ -239,9 +239,17 @@ function upsertProgress(db, studentId, sessionNo, step) {
 
 // ---------- 코딩 도우미 챗봇 ----------
 app.post('/api/chatbot', async (req, res) => {
-  const { studentId, message } = req.body;
-  const result = await answerChat(message);
+  const { studentId, message, sessionNo } = req.body;
   const db = load();
+  // 현재 차시 과제 맥락을 챗봇에 전달 (있으면)
+  let ctx = null;
+  if (sessionNo) {
+    const sess = db.sessions.find(s => s.no === Number(sessionNo));
+    if (sess) {
+      ctx = { sessionNo: sess.no, title: sess.title, task: sess.task, concept: sess.concept, example: sess.example };
+    }
+  }
+  const result = await answerChat(message, ctx);
   db.chatLogs.push({
     id: genId(),
     studentId: String(studentId || ''),

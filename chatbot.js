@@ -1,5 +1,6 @@
-// 프로그래밍 학습 전용 챗봇 (규칙 기반, 외부 API 키 불필요)
-// 욕설/비속어 및 프로그래밍과 무관한 질문은 차단 메시지를 반환합니다.
+// 프로그래밍 학습·과제 수행 도우미 챗봇
+// - 파이썬 개념 + 이번 프로그램의 과제/실습 수행 관련 질문에 답합니다.
+// - 욕설/비속어는 항상 차단하고, 학습과 무관한 잡담은 정중히 거절합니다.
 
 const PROFANITY = [
   '씨발', '시발', 'ㅅㅂ', '개새끼', '병신', 'ㅄ', '지랄', '꺼져', '죽어',
@@ -12,13 +13,19 @@ function containsProfanity(text) {
 }
 
 const TOPIC_KEYWORDS = [
+  // 프로그래밍 개념
   '파이썬', 'python', '코드', '코딩', '프로그램', '프로그래밍', '변수', '자료형',
   '입력', '출력', 'input', 'print', '연산자', '조건문', 'if', 'elif', 'else',
   '반복문', 'for', 'while', '함수', 'def', '리스트', 'list', '딕셔너리', 'dict',
   '문자열', 'string', 'str', '정수', 'int', '실수', 'float', '불린', 'bool',
   '형변환', '들여쓰기', 'indent', '오류', '에러', 'error', '디버깅', 'debug',
   '알고리즘', 'range', 'break', 'continue', 'true', 'false', '변수명', '문법',
-  'syntax', '주석', '결과값', '실행', '예외'
+  'syntax', '주석', '결과값', '실행', '예외',
+  // 과제·실습 수행 관련 (수업 과제 질문을 답변할 수 있도록 확장)
+  '과제', '문제', '실습', '힌트', '차시', '만들', '작성', '완성', '풀이', '풀어',
+  '계산', '판별', '학점', '점수', '성적', '합계', '누적', '평균', '최대', '최소',
+  '프로필', '카드', '단계', '방법', '어떻게', '왜', '안돼', '안 돼', '안되', '막혀',
+  '모르겠', '설명', '예시', '예제', '값', '조건', '반복', '설계', '구현', 'todo'
 ];
 
 function isOnTopic(text) {
@@ -119,14 +126,14 @@ const SYSTEM_PROMPT = [
   '당신은 특성화고 여학생을 위한 파이썬 프로그래밍 학습 도우미 챗봇입니다.',
   '다음 원칙을 반드시 지키세요:',
   '1) 항상 한국어로, 따뜻하고 친근한 반말~존댓말 섞인 다정한 말투로 답합니다.',
-  '2) 파이썬/프로그래밍 학습과 관련된 질문에만 답합니다. 그 외 주제(연예인, 게임, 개인적 고민 등)는 정중히 거절하고 프로그래밍 질문을 유도하세요.',
-  '3) 정답 코드를 통째로 주기보다, 학생이 스스로 생각할 수 있도록 힌트와 접근 방법 위주로 안내합니다.',
+  '2) 학생의 질문은 기본적으로 파이썬 학습과 이번 차시 과제 수행에 관한 것으로 간주하고 적극적으로 도와줍니다. 질문이 짧거나 모호해도(예: "어떻게 시작해요?", "이거 왜 안돼요?", "이 문제 힌트 좀") 현재 차시 과제에 대한 질문으로 이해하고, 절대 먼저 거절하지 말고 곧바로 구체적으로 도와주세요. 연예인·게임·정치·개인 잡담처럼 학습과 명백히 무관한 주제에는 그 정보를 절대 제공하지 말고, 자연스럽게 이번 차시 과제 이야기로 되돌려 도와주세요.',
+  '3) 정답 코드를 통째로 주기보다, 학생이 스스로 생각할 수 있도록 힌트와 접근 방법 위주로 안내합니다. 다만 학생이 여러 번 막혀 있거나 구체적으로 요청하면 단계적 예시로 더 자세히 도와줍니다.',
   '4) 오류 질문이면 어떤 종류의 오류인지, 왜 발생하는지, 어떻게 점검하면 되는지 단계적으로 설명합니다.',
   '5) 답변은 3~6문장 이내로 간결하게, 어려운 전문용어는 풀어서 설명합니다.',
   '6) 욕설이나 부적절한 표현에는 응하지 말고 예의를 갖춰 달라고 안내하세요.'
 ].join('\n');
 
-async function callOpenAI(text) {
+async function callOpenAI(text, context) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null; // 키 없으면 폴백 사용
   const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
@@ -144,6 +151,7 @@ async function callOpenAI(text) {
         model,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
+          ...(context ? [{ role: 'system', content: context }] : []),
           { role: 'user', content: text }
         ],
         temperature: 0.7,
@@ -167,7 +175,18 @@ async function callOpenAI(text) {
   }
 }
 
-async function answerChat(message) {
+// context: { sessionNo, title, task, concept, example } — 현재 차시 과제 정보(있으면 활용)
+function buildContext(ctx) {
+  if (!ctx || !ctx.sessionNo) return null;
+  const parts = [`[현재 학생이 학습 중인 차시 정보]`, `${ctx.sessionNo}차시: ${ctx.title || ''}`];
+  if (ctx.concept) parts.push(`핵심 개념: ${ctx.concept}`);
+  if (ctx.task) parts.push(`이번 과제(문제 상황): ${ctx.task}`);
+  if (ctx.example) parts.push(`예시 코드:\n${ctx.example}`);
+  parts.push('학생이 "이번 과제", "이 문제", "이거" 등으로 물으면 위 과제를 가리키는 것입니다. 이 맥락을 바탕으로 구체적으로 도와주세요.');
+  return parts.join('\n');
+}
+
+async function answerChat(message, ctx) {
   const text = (message || '').trim();
   if (!text) return { answer: '질문을 입력해주세요!', blocked: false };
 
@@ -178,16 +197,21 @@ async function answerChat(message) {
       blocked: true, reason: 'profanity'
     };
   }
-  // 2단계: 비주제 필터 (프로그래밍 무관 질문은 API 호출 전 차단)
-  if (!isOnTopic(text)) {
+  const hasOpenAI = !!process.env.OPENAI_API_KEY;
+
+  // 2단계: 비주제 필터
+  // - OpenAI 사용 시: 하드 차단을 하지 않고 모델이 판단(과제/실습 질문은 답하고, 무관한 주제는 정중히 거절).
+  //   단, 프로그래밍/과제와 명백히 무관한 키워드조차 하나도 없으면서 OpenAI가 없을 때만 차단.
+  // - FAQ 폴백 모드(키 없음): 키워드 기반으로 무관한 질문 차단.
+  if (!hasOpenAI && !isOnTopic(text)) {
     return {
-      answer: '저는 파이썬/프로그래밍 학습을 돕는 챗봇이에요. 프로그래밍과 관련 없는 질문에는 답변하기 어려워요. 변수, 조건문, 반복문, 오류 해결 등 수업 내용과 관련된 질문을 해보세요! 🐍',
+      answer: '저는 파이썬/프로그래밍 학습과 과제 수행을 돕는 챗봇이에요. 프로그래밍과 관련 없는 질문에는 답변하기 어려워요. 변수, 조건문, 반복문, 오류 해결, 이번 과제 등 수업과 관련된 질문을 해보세요! 🐍',
       blocked: true, reason: 'offtopic'
     };
   }
 
-  // 3단계: OpenAI 생성형 AI 호출 (실패 시 FAQ 폴백)
-  const aiAnswer = await callOpenAI(text);
+  // 3단계: OpenAI 생성형 AI 호출 (현재 차시 과제 맥락 포함, 실패 시 FAQ 폴백)
+  const aiAnswer = await callOpenAI(text, buildContext(ctx));
   if (aiAnswer) {
     return { answer: aiAnswer, blocked: false, source: 'openai' };
   }
