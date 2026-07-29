@@ -4,7 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const { load, save, genId, initStore, isDbMode } = require('./store');
 const { seed } = require('./seed');
-const { generateFeedback } = require('./ai');
+const { generateFeedback, generateFeedbackSmart } = require('./ai');
 const { answerChat } = require('./chatbot');
 
 const app = express();
@@ -172,12 +172,17 @@ app.post('/api/activity', (req, res) => {
   res.json({ record });
 });
 
-// ---------- AI 피드백 생성 ----------
-app.post('/api/feedback', (req, res) => {
+// ---------- AI 정서지원 피드백 생성 (생성형 LLM 우선, 실패 시 규칙 기반 폴백) ----------
+app.post('/api/feedback', async (req, res) => {
   const { studentId, sessionNo, emotion, intensity, errorNote, code } = req.body;
   if (!getStudent(studentId)) return res.status(404).json({ error: '학생을 찾을 수 없습니다.' });
-  const result = generateFeedback({ emotion, intensity, errorNote, code, sessionNo });
   const db = load();
+  const sess = db.sessions.find(s => s.no === Number(sessionNo));
+  const result = await generateFeedbackSmart({
+    emotion, intensity, errorNote, code, sessionNo,
+    sessionTitle: sess ? sess.title : '',
+    task: sess ? sess.task : ''
+  });
   const record = {
     id: genId(),
     studentId: String(studentId),
@@ -185,6 +190,7 @@ app.post('/api/feedback', (req, res) => {
     sourceText: `${errorNote || ''}`.slice(0, 500),
     feedbackText: result.feedbackText,
     tags: result.tags,
+    source: result.source || 'rule', // llm | rule
     createdAt: new Date().toISOString()
   };
   db.feedbacks.push(record);

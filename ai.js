@@ -71,4 +71,72 @@ function generateFeedback({ emotion, intensity, errorNote, code, sessionNo }) {
   };
 }
 
-module.exports = { generateFeedback };
+// ── 생성형 AI(LLM) 기반 정서지원 피드백 ──
+// 학습자의 정서(감정+강도) · 오류 · 코드 · 차시 과제 맥락을 반영해 개별화된 피드백을 생성.
+// 구성: [정서적 지지] + [단계적 힌트] + [학습전략]. 정답 코드는 직접 제시하지 않음.
+// OPENAI_API_KEY가 없거나 호출 실패 시 규칙 기반(generateFeedback)으로 자동 폴백.
+const FEEDBACK_SYSTEM_PROMPT = [
+  '당신은 특성화고 2학년 여학생의 파이썬 학습을 돕는 따뜻한 AI 정서지원 교사입니다.',
+  '학생이 방금 학습 중 느낀 감정과 오류 상황, 작성한 코드를 보고, 다음 세 부분으로 구성된 피드백을 한국어로 작성하세요.',
+  '반드시 아래 형식과 순서를 지키세요:',
+  '[정서지원] — 학생의 감정을 먼저 공감하고 따뜻하게 지지·격려 (2~3문장). 정서적으로 안전하고 존중하는 말투.',
+  '[학습전략 제안] — 지금 상황에서 어떻게 접근하면 좋을지 학습 전략을 제안 (1~2문장).',
+  '[단계적 힌트] — 오류/막힌 부분을 스스로 해결하도록 단계적 힌트 제공. 정답 코드를 통째로 주지 말고, 어디를 어떻게 점검하면 되는지 단계로 안내 (2~4개 항목).',
+  '원칙: 정답 전체 코드를 제시하지 마세요. 비난·평가 표현을 쓰지 말고, 실패를 학습의 자연스러운 과정으로 다뤄 포기하지 않도록 격려하세요. 어려운 용어는 풀어서 설명하세요.'
+].join('\n');
+
+async function generateFeedbackLLM({ emotion, intensity, errorNote, code, sessionNo, sessionTitle, task }) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
+  const userContent = [
+    `[차시] ${sessionNo}차시 ${sessionTitle || ''}`,
+    task ? `[이번 과제] ${task}` : '',
+    `[학생의 현재 감정] ${emotion || '(선택 안 함)'} (강도 ${intensity || 3}/5)`,
+    `[학생이 입력한 오류/어려움]\n${errorNote || '(구체적 오류 메시지 없음)'}`,
+    `[학생이 작성한 코드]\n${(code || '(코드 없음)').slice(0, 1500)}`
+  ].filter(Boolean).join('\n\n');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: FEEDBACK_SYSTEM_PROMPT },
+          { role: 'user', content: userContent }
+        ],
+        temperature: 0.7,
+        max_tokens: 600
+      }),
+      signal: controller.signal
+    });
+    if (!res.ok) {
+      console.error('정서지원 피드백 LLM 오류:', res.status);
+      return null;
+    }
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content?.trim();
+    if (!text) return null;
+    return { feedbackText: text, tags: pickCodeHints(`${errorNote || ''}\n${code || ''}`).map(h => h.tag), source: 'llm' };
+  } catch (e) {
+    console.error('정서지원 피드백 LLM 호출 실패:', e.message);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// LLM 우선, 실패 시 규칙 기반 폴백
+async function generateFeedbackSmart(params) {
+  const llm = await generateFeedbackLLM(params);
+  if (llm) return llm;
+  const rule = generateFeedback(params);
+  return { ...rule, source: 'rule' };
+}
+
+module.exports = { generateFeedback, generateFeedbackLLM, generateFeedbackSmart };

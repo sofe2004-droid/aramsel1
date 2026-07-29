@@ -71,6 +71,7 @@ body {
 .primary-btn:active { transform: scale(0.98); }
 .primary-btn:disabled { background:#e8dff0; box-shadow:none; cursor:not-allowed; }
 .login-error { color:#e0608c; font-size: 0.82rem; margin-top: 10px; min-height: 1em; }
+.privacy-note { background:#f5f2fb; border:1px solid #e6ddf3; border-radius: 12px; padding: 10px 12px; margin: 12px 0; font-size: 0.75rem; color:#6b5f78; line-height: 1.5; text-align:left; }
 
 /* 세션 네비 */
 .session-nav { display:flex; gap:6px; overflow-x:auto; padding: 12px 16px; background:#fffafd; border-bottom: 2px solid #ffeaf3; }
