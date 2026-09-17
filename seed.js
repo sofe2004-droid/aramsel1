@@ -82,18 +82,18 @@ const SESSIONS = [
 ];
 
 // 학번 = 학년(1) + 반(2) + 번호(2) => 예) 2학년 1반 1번 = 20101
-// 반 구성: {반번호: 인원수}
+// 반 구성: {학년, 반번호, 인원수}
 const CLASS_CONFIG = [
-  { cls: 1, count: 15 },   // 2학년 1반 (20101~20115)
-  { cls: 2, count: 15 },   // 2학년 2반 (20201~20215)
-  { cls: 6, count: 18 },   // 2학년 6반 (20601~20618)
-  { cls: 7, count: 18 }    // 2학년 7반 (20701~20718)
+  { grade: 2, cls: 1, count: 15 },   // 2학년 1반 (20101~20115)
+  { grade: 2, cls: 2, count: 15 },   // 2학년 2반 (20201~20215)
+  { grade: 2, cls: 6, count: 18 },   // 2학년 6반 (20601~20618)
+  { grade: 2, cls: 7, count: 18 },   // 2학년 7반 (20701~20718)
+  { grade: 1, cls: 5, count: 20 }    // 1학년 5반 (10501~10520)
 ];
 
 function buildStudents() {
   const students = [];
-  const grade = 2;
-  for (const { cls, count } of CLASS_CONFIG) {
+  for (const { grade, cls, count } of CLASS_CONFIG) {
     for (let num = 1; num <= count; num++) {
       const studentId = `${grade}${String(cls).padStart(2, '0')}${String(num).padStart(2, '0')}`;
       students.push({
@@ -111,10 +111,28 @@ function buildStudents() {
   return students;
 }
 
+// 명단에 없는 학생만 추가 (기존 학생 객체·비밀번호·기록은 보존)
+function mergeStudents(db) {
+  const existing = new Set(db.students.map(s => s.studentId));
+  let added = 0;
+  for (const stu of buildStudents()) {
+    if (!existing.has(stu.studentId)) { db.students.push(stu); added++; }
+  }
+  if (added > 0) {
+    db.students.sort((a, b) => a.studentId.localeCompare(b.studentId));
+    console.log(`신규 학생 ${added}명 추가 병합 (기존 명단·기록 보존)`);
+  }
+  return added;
+}
+
 function seed(force) {
   const db = load();
   if (db.students.length > 0 && !force) {
-    console.log('이미 시드 데이터가 존재합니다. (force=true로 재시드 가능)');
+    // 이미 데이터가 있으면 기록은 유지하되, 명단에 없는 신규 학생만 병합
+    mergeStudents(db);
+    db.sessions = SESSIONS; // 커리큘럼은 최신으로 유지
+    save();
+    console.log(`시드 확인: 학생 ${db.students.length}명, 차시 ${db.sessions.length}개`);
     return db;
   }
   db.students = buildStudents();
@@ -141,4 +159,4 @@ if (require.main === module) {
   })();
 }
 
-module.exports = { seed, SESSIONS, buildStudents };
+module.exports = { seed, mergeStudents, SESSIONS, buildStudents };
