@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { load, save, genId, initStore, isDbMode } = require('./store');
-const { seed } = require('./seed');
+const { seed, buildStudents } = require('./seed');
 const { generateFeedback, generateFeedbackSmart } = require('./ai');
 const { answerChat } = require('./chatbot');
 
@@ -399,6 +399,17 @@ app.get('/api/teacher/analytics', (req, res) => {
       return { sessionNo: sess.no, positive: pos, negative: neg, responses: post.length, avgIntensity };
     });
 
+    // 누적 정서 집계 (학습 후 정서 전체 기준 — 긍정 비율/긍정·부정·위험 건수)
+    const postAll = emo.filter(e => e.phase === 'post');
+    const cumPositive = postAll.filter(e => POSITIVE_EMOTIONS.includes(e.emotion)).length;
+    const cumNegative = postAll.filter(e => NEGATIVE_EMOTIONS.includes(e.emotion)).length;
+    const cumAtRisk = postAll.filter(e => NEGATIVE_EMOTIONS.includes(e.emotion) && e.intensity >= 4).length;
+    const cumTotal = cumPositive + cumNegative;
+    const cumulative = {
+      positive: cumPositive, negative: cumNegative, atRisk: cumAtRisk, total: cumTotal,
+      positiveRatio: cumTotal ? Math.round(cumPositive / cumTotal * 100) : 0
+    };
+
     // 학습 향상도 (같은 차시 pre→post 정서 점수 개선 비율)
     let improved = 0, pairs = 0;
     for (const st of students) {
@@ -424,6 +435,7 @@ app.get('/api/teacher/analytics', (req, res) => {
       completionBySession,
       current,
       emotionTrend,
+      cumulative,
       improvement: { pairs, improved, rate: pairs ? Math.round(improved / pairs * 100) : 0 },
       code: { totalSubmissions: codeActs.length, studentsWithCode,
               avgPerStudent: students.length ? Number((codeActs.length / students.length).toFixed(1)) : 0 },
@@ -462,6 +474,111 @@ app.get('/api/teacher/analytics', (req, res) => {
   });
 
   res.json({ classes, totalStudents: db.students.length, overall, byClass, atRisk, students });
+});
+
+// ── [관리자] 1학년 5반 데모 데이터 생성 (멱등) ──
+// 이미지 수치에 맞춰 1학년 5반 15명의 차시별 정서·코드·이수 데이터를 생성한다.
+app.post('/api/admin/seed-demo-class5', (req, res) => {
+  if (String(req.body.password || '') !== ADMIN_PW) {
+    return res.status(401).json({ error: '관리자 비밀번호가 올바르지 않습니다.' });
+  }
+  const db = load();
+  const pad2 = n => String(n).padStart(2, '0');
+  const targetNumbers = [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+  const targetIds = targetNumbers.map(n => `105${pad2(n)}`);
+  const targetSet = new Set(targetIds);
+
+  // 1) 로스터 정리: 1학년 5반을 목표 15명으로 맞춤(결번/초과 제거), 없으면 추가
+  const removedIds = db.students
+    .filter(s => s.grade === 1 && s.classNo === 5 && !targetSet.has(s.studentId))
+    .map(s => s.studentId);
+  db.students = db.students.filter(s => !(s.grade === 1 && s.classNo === 5 && !targetSet.has(s.studentId)));
+  for (const id of targetIds) {
+    if (!db.students.find(s => s.studentId === id)) {
+      const num = Number(id.slice(3));
+      db.students.push({ studentId: id, grade: 1, classNo: 5, number: num,
+        name: `1학년 5반 ${num}번`, group: '실험집단', password: id, mustChangePassword: true });
+    }
+  }
+  db.students.sort((a, b) => a.studentId.localeCompare(b.studentId));
+
+  // 2) 대상 학생들의 기존 기록 제거(멱등) + 삭제된 학생 기록도 정리
+  const clearIds = new Set([...targetIds, ...removedIds]);
+  const keep = r => !clearIds.has(r.studentId);
+  db.emotionChecks = db.emotionChecks.filter(keep);
+  db.activities = db.activities.filter(keep);
+  db.feedbacks = db.feedbacks.filter(keep);
+  db.reflections = db.reflections.filter(keep);
+  db.progress = db.progress.filter(keep);
+  db.chatLogs = db.chatLogs.filter(keep);
+
+  // 3) 차시별 스펙 (이미지 기준)
+  const SPEC = [
+    { no: 1, pos: 15, neg: 0, avg: 3.6, skip: null },
+    { no: 2, pos: 13, neg: 2, avg: 3.7, skip: null },
+    { no: 3, pos: 12, neg: 2, avg: 3.5, skip: '10515' },
+    { no: 4, pos: 12, neg: 3, avg: 3.4, skip: null },
+    { no: 5, pos: 11, neg: 3, avg: 3.5, skip: '10516' },
+    { no: 6, pos: 9, neg: 6, avg: 3.1, skip: null },
+    { no: 7, pos: 10, neg: 5, avg: 3.2, skip: null }
+  ];
+  const POS = ['성취감', '즐거움', '편안함', '자신있음'];
+  const NEG = ['답답함', '당황스러움'];
+  const base = Date.now() - 14 * 24 * 3600 * 1000;
+  const ts = (sessNo, phaseOffset) => new Date(base + sessNo * 24 * 3600 * 1000 + phaseOffset * 3600 * 1000).toISOString();
+
+  const completedBySession = {}; // studentId -> [sessionNo...]
+  targetIds.forEach(id => completedBySession[id] = []);
+
+  for (const sp of SPEC) {
+    const completers = targetIds.filter(id => id !== sp.skip);
+    // 앞쪽 pos명 긍정, 뒤쪽 neg명 부정
+    const total = sp.pos + sp.neg;
+    const targetSum = Math.round(sp.avg * total);
+    let plus = targetSum - 3 * total; // 긍정 일부에 +1 (부정은 강도3 고정 → 위험 0)
+    completers.forEach((id, idx) => {
+      const isPos = idx < sp.pos;
+      let intensity = 3;
+      if (isPos && plus > 0) { intensity = 4; plus--; }
+      const emotion = isPos ? POS[idx % POS.length] : NEG[(idx - sp.pos) % NEG.length];
+      // 학습 전 정서(긍정, 강도3)
+      db.emotionChecks.push({ id: genId(), studentId: id, sessionNo: sp.no, phase: 'pre',
+        emotion: idx % 2 ? '기대됨' : '편안함', intensity: 3, note: '', mode: 'learn',
+        reviewRound: null, reviewLabel: null, createdAt: ts(sp.no, 0) });
+      // 학습 후 정서
+      db.emotionChecks.push({ id: genId(), studentId: id, sessionNo: sp.no, phase: 'post',
+        emotion, intensity, note: '', mode: 'learn',
+        reviewRound: null, reviewLabel: null, createdAt: ts(sp.no, 1) });
+      completedBySession[id].push(sp.no);
+    });
+  }
+
+  // 4) 코드 입력 90건(학생당 6건) + 진행상태
+  let codeCount = 0;
+  for (const id of targetIds) {
+    const done = completedBySession[id];
+    const codeSessions = done.slice(0, 6); // 완료 세션 중 앞 6개에 코드
+    for (const no of codeSessions) {
+      db.activities.push({ id: genId(), studentId: id, sessionNo: no,
+        type: no === codeSessions[codeSessions.length - 1] ? 'final' : 'code',
+        content: '# 실습 코드\nprint("Hello")', createdAt: ts(no, 2) });
+      codeCount++;
+    }
+    // 진행상태(이수 = emotion_post 포함)
+    for (const no of done) {
+      db.progress.push({ studentId: id, sessionNo: no,
+        steps: ['emotion_pre', 'activity', 'feedback', 'emotion_post'], updatedAt: ts(no, 3) });
+    }
+    // 마지막 완료 차시에 성찰 1건
+    const last = done[done.length - 1];
+    db.reflections.push({ id: genId(), studentId: id, sessionNo: last,
+      content: '오늘 학습을 돌아보니 오류를 수정하며 끝까지 해결한 점이 뿌듯했다.', createdAt: ts(last, 3) });
+  }
+
+  save();
+  res.json({ ok: true, removed: removedIds, students: targetIds.length,
+             emotionChecks: db.emotionChecks.filter(e => targetSet.has(e.studentId)).length,
+             codeActivities: codeCount });
 });
 
 // 부정적 정서 강도 높은 학생 알림용 (교사 대시보드 경고)

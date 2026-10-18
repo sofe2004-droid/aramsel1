@@ -83,18 +83,21 @@ const SESSIONS = [
 
 // 학번 = 학년(1) + 반(2) + 번호(2) => 예) 2학년 1반 1번 = 20101
 // 반 구성: {학년, 반번호, 인원수}
+// count: 1~count 번호 자동 생성 / numbers: 번호를 직접 지정(일부 번호 결번 시)
 const CLASS_CONFIG = [
   { grade: 2, cls: 1, count: 15 },   // 2학년 1반 (20101~20115)
   { grade: 2, cls: 2, count: 15 },   // 2학년 2반 (20201~20215)
   { grade: 2, cls: 6, count: 18 },   // 2학년 6반 (20601~20618)
   { grade: 2, cls: 7, count: 18 },   // 2학년 7반 (20701~20718)
-  { grade: 1, cls: 5, count: 20 }    // 1학년 5반 (10501~10520)
+  { grade: 1, cls: 5, numbers: [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] } // 1학년 5반 15명 (3번 결번)
 ];
 
 function buildStudents() {
   const students = [];
-  for (const { grade, cls, count } of CLASS_CONFIG) {
-    for (let num = 1; num <= count; num++) {
+  for (const cfg of CLASS_CONFIG) {
+    const { grade, cls } = cfg;
+    const nums = cfg.numbers || Array.from({ length: cfg.count }, (_, i) => i + 1);
+    for (const num of nums) {
       const studentId = `${grade}${String(cls).padStart(2, '0')}${String(num).padStart(2, '0')}`;
       students.push({
         studentId,

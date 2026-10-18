@@ -98,14 +98,14 @@ function selectClass(c) { selectedClass = c; renderClassFilter(); renderAll(); w
 // 📊 핵심 지표
 function renderKPIs(scope) {
   document.getElementById('kpiTitle').textContent = `📊 ${searchId ? '학번 ' + searchId : classLabel(selectedClass)} 학습 지표`;
-  const c = scope.current;
+  const cum = scope.cumulative || { positive: 0, negative: 0, atRisk: 0, total: 0, positiveRatio: 0 };
   const tiles = [
     { num: `${scope.avgCompletedSessions}<span class="tile-unit">/${scope.totalSessions}</span>`, label: '평균 이수 차시', cls: 'sum-neutral' },
-    { num: `${scope.improvement.rate}<span class="tile-unit">%</span>`, label: `학습 향상도(정서 개선)<br><span class="muted">${scope.improvement.improved}/${scope.improvement.pairs}쌍</span>`, cls: 'sum-pos' },
+    { num: `${cum.positiveRatio}<span class="tile-unit">%</span>`, label: `평균 긍정 비율<br><span class="muted">${cum.positive}/${cum.total}건</span>`, cls: 'sum-pos' },
     { num: scope.code.totalSubmissions, label: `코드 입력<br><span class="muted">학생당 ${scope.code.avgPerStudent}건</span>`, cls: 'sum-neutral' },
-    { num: c.positive, label: '😊 긍정', cls: 'sum-pos' },
-    { num: c.negative, label: '😟 부정', cls: 'sum-neg' },
-    { num: c.atRisk, label: '🚨 위험', cls: 'sum-risk' }
+    { num: cum.positive, label: '😊 긍정', cls: 'sum-pos' },
+    { num: cum.negative, label: '😟 부정', cls: 'sum-neg' },
+    { num: cum.atRisk, label: '🚨 위험', cls: 'sum-risk' }
   ];
   document.getElementById('kpiTiles').innerHTML = tiles.map(t =>
     `<div class="summary-tile ${t.cls}"><div class="tile-num">${t.num}</div><div class="tile-label">${t.label}</div></div>`
