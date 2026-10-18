@@ -476,18 +476,6 @@ app.get('/api/teacher/analytics', (req, res) => {
   res.json({ classes, totalStudents: db.students.length, overall, byClass, atRisk, students });
 });
 
-// ── [관리자·일회성] 1학년 5반 데모 데이터 생성 ──
-app.post('/api/admin/seed-demo-class5', (req, res) => {
-  if (String(req.body.password || '') !== ADMIN_PW) {
-    return res.status(401).json({ error: '관리자 비밀번호가 올바르지 않습니다.' });
-  }
-  const { generate } = require('./demo_class5');
-  const db = load();
-  const summary = generate(db, genId);
-  save();
-  res.json({ ok: true, ...summary });
-});
-
 // 부정적 정서 강도 높은 학생 알림용 (교사 대시보드 경고)
 app.get('/api/teacher/alerts', (req, res) => {
   const db = load();
